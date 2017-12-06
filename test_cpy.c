@@ -4,13 +4,14 @@
 #include <time.h>
 
 #include "tst.h"
-
+#include "bench.h"
 /** constants insert, delete, max word(s) & stack nodes */
 enum { INS, DEL, WRDMAX = 256, STKMAX = 512, LMAX = 1024 };
 #define REF INS
 #define CPY DEL
 
 /* timing helper function */
+/*
 static double tvgetf(void)
 {
     struct timespec ts;
@@ -23,7 +24,7 @@ static double tvgetf(void)
 
     return sec;
 }
-
+*/
 /* simple trim '\n' from end of buffer filled by fgets */
 static void rmcrlf(char *s)
 {
@@ -33,6 +34,9 @@ static void rmcrlf(char *s)
 }
 
 #define IN_FILE "cities.txt"
+#define TST_BENCH "tst_bench_cpy.txt"
+#define SEARCH_BENCH "search_bench_cpy.txt"
+
 
 int main(int argc, char **argv)
 {
@@ -63,6 +67,21 @@ int main(int argc, char **argv)
     fclose(fp);
     printf("ternary_tree, loaded %d words in %.6f sec\n", idx, t2 - t1);
 
+    if (argc==2 && strcmp(argv[1], "--bench") == 0) {
+        fp = fopen (TST_BENCH,"a+");
+        if (!fp) {
+            fprintf(stderr, "error: file open failed '%s'.\n", TST_BENCH);
+            return 1;
+        }
+        fprintf(fp, "%.6f\n",t2 - t1);
+        fclose(fp);
+        int status = bench(root,sgl,SEARCH_BENCH, &sidx, LMAX);
+        tst_free_all(root);
+        return status;
+    }
+
+
+
     for (;;) {
         printf(
             "\nCommands:\n"
@@ -75,83 +94,83 @@ int main(int argc, char **argv)
         fgets(word, sizeof word, stdin);
 
         switch (*word) {
-            char *p = NULL;
-        case 'a':
-            printf("enter word to add: ");
-            if (!fgets(word, sizeof word, stdin)) {
-                fprintf(stderr, "error: insufficient input.\n");
+                char *p = NULL;
+            case 'a':
+                printf("enter word to add: ");
+                if (!fgets(word, sizeof word, stdin)) {
+                    fprintf(stderr, "error: insufficient input.\n");
+                    break;
+                }
+                rmcrlf(word);
+                p = word;
+                t1 = tvgetf();
+                res = tst_ins_del(&root, &p, INS, CPY);
+                t2 = tvgetf();
+                if (res) {
+                    idx++;
+                    printf("  %s - inserted in %.6f sec. (%d words in tree)\n",
+                           (char *) res, t2 - t1, idx);
+                } else
+                    printf("  %s - already exists in list.\n", (char *) res);
                 break;
-            }
-            rmcrlf(word);
-            p = word;
-            t1 = tvgetf();
-            res = tst_ins_del(&root, &p, INS, CPY);
-            t2 = tvgetf();
-            if (res) {
-                idx++;
-                printf("  %s - inserted in %.6f sec. (%d words in tree)\n",
-                       (char *) res, t2 - t1, idx);
-            } else
-                printf("  %s - already exists in list.\n", (char *) res);
-            break;
-        case 'f':
-            printf("find word in tree: ");
-            if (!fgets(word, sizeof word, stdin)) {
-                fprintf(stderr, "error: insufficient input.\n");
+            case 'f':
+                printf("find word in tree: ");
+                if (!fgets(word, sizeof word, stdin)) {
+                    fprintf(stderr, "error: insufficient input.\n");
+                    break;
+                }
+                rmcrlf(word);
+                t1 = tvgetf();
+                res = tst_search(root, word);
+                t2 = tvgetf();
+                if (res)
+                    printf("  found %s in %.6f sec.\n", (char *) res, t2 - t1);
+                else
+                    printf("  %s not found.\n", word);
                 break;
-            }
-            rmcrlf(word);
-            t1 = tvgetf();
-            res = tst_search(root, word);
-            t2 = tvgetf();
-            if (res)
-                printf("  found %s in %.6f sec.\n", (char *) res, t2 - t1);
-            else
-                printf("  %s not found.\n", word);
-            break;
-        case 's':
-            printf("find words matching prefix (at least 1 char): ");
-            if (!fgets(word, sizeof word, stdin)) {
-                fprintf(stderr, "error: insufficient input.\n");
+            case 's':
+                printf("find words matching prefix (at least 1 char): ");
+                if (!fgets(word, sizeof word, stdin)) {
+                    fprintf(stderr, "error: insufficient input.\n");
+                    break;
+                }
+                rmcrlf(word);
+                t1 = tvgetf();
+                res = tst_search_prefix(root, word, sgl, &sidx, LMAX);
+                t2 = tvgetf();
+                if (res) {
+                    printf("  %s - searched prefix in %.6f sec\n\n", word, t2 - t1);
+                    for (int i = 0; i < sidx; i++)
+                        printf("suggest[%d] : %s\n", i, sgl[i]);
+                } else
+                    printf("  %s - not found\n", word);
                 break;
-            }
-            rmcrlf(word);
-            t1 = tvgetf();
-            res = tst_search_prefix(root, word, sgl, &sidx, LMAX);
-            t2 = tvgetf();
-            if (res) {
-                printf("  %s - searched prefix in %.6f sec\n\n", word, t2 - t1);
-                for (int i = 0; i < sidx; i++)
-                    printf("suggest[%d] : %s\n", i, sgl[i]);
-            } else
-                printf("  %s - not found\n", word);
-            break;
-        case 'd':
-            printf("enter word to del: ");
-            if (!fgets(word, sizeof word, stdin)) {
-                fprintf(stderr, "error: insufficient input.\n");
+            case 'd':
+                printf("enter word to del: ");
+                if (!fgets(word, sizeof word, stdin)) {
+                    fprintf(stderr, "error: insufficient input.\n");
+                    break;
+                }
+                rmcrlf(word);
+                p = word;
+                printf("  deleting %s\n", word);
+                t1 = tvgetf();
+                res = tst_ins_del(&root, &p, DEL, CPY);
+                t2 = tvgetf();
+                if (res)
+                    printf("  delete failed.\n");
+                else {
+                    printf("  deleted %s in %.6f sec\n", word, t2 - t1);
+                    idx--;
+                }
                 break;
-            }
-            rmcrlf(word);
-            p = word;
-            printf("  deleting %s\n", word);
-            t1 = tvgetf();
-            res = tst_ins_del(&root, &p, DEL, CPY);
-            t2 = tvgetf();
-            if (res)
-                printf("  delete failed.\n");
-            else {
-                printf("  deleted %s in %.6f sec\n", word, t2 - t1);
-                idx--;
-            }
-            break;
-        case 'q':
-            tst_free_all(root);
-            return 0;
-            break;
-        default:
-            fprintf(stderr, "error: invalid selection.\n");
-            break;
+            case 'q':
+                tst_free_all(root);
+                return 0;
+                break;
+            default:
+                fprintf(stderr, "error: invalid selection.\n");
+                break;
         }
     }
 

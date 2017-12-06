@@ -4,6 +4,10 @@ TESTS = \
 
 CFLAGS = -Wall -Werror -g
 
+BIN = \
+	test_cpy \
+	test_ref
+
 # Control the build verbosity                                                   
 ifeq ("$(VERBOSE)","1")
     Q :=
@@ -24,7 +28,8 @@ $(GIT_HOOKS):
 	@echo
 
 OBJS_LIB = \
-    tst.o
+    tst.o \
+    bench.o
 
 OBJS := \
     $(OBJS_LIB) \
@@ -32,6 +37,23 @@ OBJS := \
     test_ref.o
 
 deps := $(OBJS:%.o=.%.o.d)
+
+bench: $(BIN)
+	@for test in $(BIN); do\
+		perf stat --repeat 100 \
+		-e cache-misses,cache-references,instructions,cycles \
+		./$$test --bench;\
+	done
+
+#bench:
+#	echo 3 | sudo tee /proc/sys/vm/drop_caches
+#	perf stat --repeat 100 \
+#                -e cache-misses,cache-references,instructions,cycles \
+#                sudo chrt -f 99 taskset -c 0 ./test_cpy --bench
+#	echo 3 | sudo tee /proc/sys/vm/drop_caches
+#	perf stat --repeat 100 \
+#                -e cache-misses,cache-references,instructions,cycles \
+#                sudo chrt -f 99 taskset -c 0 ./test_ref --bench
 
 test_%: test_%.o $(OBJS_LIB)
 	$(VECHO) "  LD\t$@\n"
