@@ -38,8 +38,9 @@ int main(int argc, char **argv)
 {
     char word[WRDMAX] = "";
     char *sgl[LMAX] = {NULL};
+    char *delim = ",\n";
     tst_node *root = NULL, *res = NULL;
-    int rtn = 0, idx = 0, sidx = 0;
+    int idx = 0, sidx = 0;
     FILE *fp = fopen(IN_FILE, "r");
     double t1, t2;
 
@@ -49,14 +50,18 @@ int main(int argc, char **argv)
     }
 
     t1 = tvgetf();
-    while ((rtn = fscanf(fp, "%s", word)) != EOF) {
-        char *p = word;
-        if (!tst_ins_del(&root, &p, INS, CPY)) {
-            fprintf(stderr, "error: memory exhausted, tst_insert.\n");
-            fclose(fp);
-            return 1;
-        }
-        idx++;
+    while (fgets(word, WRDMAX, fp)) {
+        char *p = strtok(word, delim);
+        do {
+            if (p[0] == ' ') /* because input data is "city, country" or "city, state, country", remove the redundant space */
+                p++;
+            if (!tst_ins_del(&root, &p, INS, CPY)) {
+                fprintf(stderr, "error: memory exhausted, tst_insert.\n");
+                fclose(fp);
+                return 1;
+            }
+            idx++;
+        } while((p = strtok(NULL, delim)) != NULL);
     }
     t2 = tvgetf();
 
